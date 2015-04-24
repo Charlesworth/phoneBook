@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"runtime"
@@ -25,6 +26,11 @@ type Entry struct {
 	ZipPostal   string `json:"ZipPostal"`
 }
 
+var BoltClient struct {
+	DB    *bolt.DB
+	Mutex *sync.RWMutex
+}
+
 func main() {
 
 	SetProc()
@@ -38,6 +44,21 @@ func main() {
 
 func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("list")
+
+	BoltClient.Mutex.RLock()
+
+	//list all entries in the bucket
+	fmt.Println("all in the phonebook:")
+	BoltClient.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("phoneBook"))
+		b.ForEach(func(k, v []byte) error {
+			fmt.Printf("key=%s, value=%s\n", k, v)
+			return nil
+		})
+		return nil
+	})
+
+	BoltClient.Mutex.RUnlock()
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -52,6 +73,19 @@ func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("put", params.ByName("surname"))
 
+	BoltClient.Mutex.Lock()
+
+	err := BoltClient.DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("phoneBook"))
+		err := b.Put([]byte(params.ByName("surname")), []byte("test"))
+		return err
+	})
+
+	BoltClient.Mutex.Unlock()
+
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -59,6 +93,7 @@ func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 }
 
+//NewRouter returns a httprouter.Router complete with the routes
 func NewRouter() *httprouter.Router {
 
 	router := httprouter.New()
@@ -71,18 +106,13 @@ func NewRouter() *httprouter.Router {
 	return router
 }
 
+//SetProc sets the program to use 2 proccessor cores
 func SetProc() {
-	//set program to use 2 proccessor cores
 	runtime.GOMAXPROCS(2)
 }
 
-//Object variables
-var BoltClient struct {
-	DB    *bolt.DB
-	Mutex *sync.RWMutex
-}
-
-//constructor function
+//NewBoltClient produces a BoltClient and Mutex lock and assigns them
+//to the global BoltClient variable
 func NewBoltClient() { //*BoltClient {
 	//Open DB
 	BoltDB, err := bolt.Open("phoneBook.db", 0600, nil)
@@ -107,9 +137,4 @@ func NewBoltClient() { //*BoltClient {
 	//BoltClient var
 	BoltClient.DB = BoltDB
 	BoltClient.Mutex = mutex
-
-	//	return &BoltClient{
-	//		BoltDB,
-	//		mutex,
-	//	}
 }
