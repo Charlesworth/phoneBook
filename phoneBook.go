@@ -61,13 +61,24 @@ func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	BoltClient.Mutex.RUnlock()
 }
 
-func searchHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("search", params.ByName("surname"))
-
-}
+//func searchHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+//	log.Println("search", params.ByName("surname"))
+//}
 
 func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("get", params.ByName("surname"))
+
+	BoltClient.Mutex.RLock()
+
+	//Get from bucket
+	BoltClient.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("phoneBook"))
+		v := b.Get([]byte(params.ByName("surname")))
+		fmt.Printf("The answer is: %s\n", v)
+		return nil
+	})
+
+	BoltClient.Mutex.RUnlock()
 }
 
 func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -91,6 +102,21 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("del", params.ByName("surname"))
 
+	BoltClient.Mutex.Lock()
+
+	//Delete from bucket
+	err := BoltClient.DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("phoneBook"))
+		err := b.Delete([]byte(params.ByName("surname")))
+		return err
+	})
+
+	BoltClient.Mutex.Unlock()
+
+	if err != nil {
+		log.Print(err)
+	}
+
 }
 
 //NewRouter returns a httprouter.Router complete with the routes
@@ -98,8 +124,8 @@ func NewRouter() *httprouter.Router {
 
 	router := httprouter.New()
 	router.GET("/list", listHandler)
-	router.GET("/search/:surname", searchHandler) //need to fix this, to /search?surname=bob
-	router.GET("/entry/:surname", getEntryHandler)
+	//router.GET("/search/:surname", searchHandler) //need to fix this, to /search?surname=bob
+	router.GET("/entry/:surname", getEntryHandler) //is this the search
 	router.PUT("/entry/:surname", putEntryHandler)
 	router.DELETE("/entry/:surname", delEntryHandler)
 
