@@ -5,13 +5,13 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"github.com/julienschmidt/httprouter"
 	"log"
 	"net/http"
 	"runtime"
-	//"sync"
+	"sync"
+
+	"github.com/boltdb/bolt"
+	"github.com/julienschmidt/httprouter"
 )
 
 type Entry struct {
@@ -28,7 +28,8 @@ type Entry struct {
 func main() {
 
 	SetProc()
-	test()
+	NewBoltClient()
+	defer BoltClient.DB.Close()
 
 	//start the server
 	log.Println("Listening on port :3000")
@@ -37,31 +38,15 @@ func main() {
 
 func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("list")
-	//for i ; range listOfSurnames{
-	//entry = get from bolt[i]
-	//perhaps unmarsall
-	//fmt.fprintln(entry)
-	//}
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println(params.ByName("surname"))
+	log.Println("search", params.ByName("surname"))
 
 }
 
 func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("get", params.ByName("surname"))
-	// dataMutex.Lock()
-	// value, keyExists := Names.m[params.ByName("surname")]
-	// if keyExists {
-	// 	//value = unmarshall(value)
-	// 	fmt.Fprintln(w, value)
-	// } else {
-	// 	//print result "no such entry"
-	// 	fmt.Fprintln(w, "Entry not found")
-	// 	w.WriteHeader(404)
-	// }
-	// dataMutex.Unlock()
 }
 
 func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -70,7 +55,7 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 }
 
 func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println(params.ByName("surname"))
+	log.Println("del", params.ByName("surname"))
 
 }
 
@@ -87,35 +72,44 @@ func NewRouter() *httprouter.Router {
 }
 
 func SetProc() {
-	//set program to use all available proccessors
+	//set program to use 2 proccessor cores
 	runtime.GOMAXPROCS(2)
 }
 
-func test() {
+//Object variables
+var BoltClient struct {
+	DB    *bolt.DB
+	Mutex *sync.RWMutex
+}
 
-	m1 := Entry{
-		FirstName:   "Ted",
-		TelNo:       "test number",
-		Line1:       "string",
-		Line2:       "string",
-		TownCity:    "string",
-		CountyState: "string",
-		Country:     "string",
-		ZipPostal:   "string",
-	}
-
-	m1json, err := json.Marshal(m1)
+//constructor function
+func NewBoltClient() { //*BoltClient {
+	//Open DB
+	BoltDB, err := bolt.Open("phoneBook.db", 0600, nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 	}
 
-	fmt.Println(string(m1json))
+	//open (or create if not present) bucket
+	err = BoltDB.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte("phoneBook"))
 
-	var unmarsh Entry
-	err = json.Unmarshal(m1json, &unmarsh)
+		return err
+	})
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 	}
 
-	fmt.Println("unmarshaled ", string(unmarsh))
+	//make a read/write mutex
+	mutex := &sync.RWMutex{}
+
+	//assign the pointers to the mutex and DB to the Global
+	//BoltClient var
+	BoltClient.DB = BoltDB
+	BoltClient.Mutex = mutex
+
+	//	return &BoltClient{
+	//		BoltDB,
+	//		mutex,
+	//	}
 }
