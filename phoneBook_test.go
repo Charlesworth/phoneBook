@@ -36,6 +36,6 @@ func TestSetProc(t *testing.T) {
 	}
 }
 
-func TestListHandler(t *testing.T) {
-	t.Error("fail poo poo")
+func Testmain(t *testing.T) {
+
 }
