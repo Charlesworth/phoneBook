@@ -33,16 +33,14 @@ type AddressStruct struct {
 
 func main() {
 
-	//set program to use all available proccessors
-	procNo := runtime.NumCPU()
-	runtime.GOMAXPROCS(procNo)
+	SetProc()
 
 	//start the server
 	log.Println("Listening on port :3000")
-	log.Fatal(http.ListenAndServe(":3000", Router()))
+	log.Fatal(http.ListenAndServe(":3000", NewRouter()))
 }
 
-func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func ListHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("list")
 	//for i ; range listOfSurnames{
 	//entry = get from bolt[i]
@@ -67,16 +65,22 @@ func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	log.Println(params.ByName("surname"))
 }
 
-func Router() *httprouter.Router {
+func NewRouter() *httprouter.Router {
 
 	router := httprouter.New()
-	router.GET("/list", listHandler)
+	router.GET("/list", ListHandler)
 	router.GET("/search/:surname", searchHandler) //need to fix this, to /search?surname=bob
 	router.GET("/entry/:surname", getEntryHandler)
 	router.PUT("/entry/:surname", putEntryHandler)
 	router.DELETE("/entry/:surname", delEntryHandler)
 
 	return router
+}
+
+func SetProc() {
+	//set program to use all available proccessors
+	//procNo := runtime.NumCPU()
+	runtime.GOMAXPROCS(2)
 }
 
 func test() {
