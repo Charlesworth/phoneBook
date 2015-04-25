@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"runtime"
@@ -79,21 +80,38 @@ func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	BoltClient.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("phoneBook"))
 		v := b.Get([]byte(params.ByName("surname")))
-		fmt.Printf("The answer is: %s\n", v)
+		if v == nil {
+			w.WriteHeader(404)
+		} else {
+			//fmt.Printf("The answer is: %s\n", v)
+			fmt.Fprintf(w, "%s\n", v)
+		}
 		return nil
 	})
 
 	BoltClient.Mutex.RUnlock()
+
 }
 
 func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("put", params.ByName("surname"))
 
+	//get the content of the HTTP request
+	defer r.Body.Close()
+	bodyByte, _ := ioutil.ReadAll(r.Body)
+	body := string(bodyByte)
+	log.Println("Content: " + body)
+
+	//marshal unmarshal Json
+	//check if that surname is present
+	//if it is then retrieve and add record
+	//else
+
 	BoltClient.Mutex.Lock()
 
 	err := BoltClient.DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("phoneBook"))
-		err := b.Put([]byte(params.ByName("surname")), []byte("test"))
+		err := b.Put([]byte(params.ByName("surname")), []byte(body))
 		return err
 	})
 
