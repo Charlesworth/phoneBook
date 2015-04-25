@@ -51,20 +51,23 @@ func main() {
 func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("list")
 
+	fmt.Fprint(w, `{"Phone Book":`)
 	BoltClient.Mutex.RLock()
 
 	//list all entries in the bucket
-	fmt.Println("all in the phonebook:")
+	//fmt.Println("all in the phonebook:")
 	BoltClient.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("phoneBook"))
 		b.ForEach(func(k, v []byte) error {
-			fmt.Printf("key=%s, value=%s\n", k, v)
+			//fmt.Printf("key=%s, value=%s\n", k, v)
+			fmt.Fprintf(w, "%s,", v) //"%s\n", v)
 			return nil
 		})
 		return nil
 	})
 
 	BoltClient.Mutex.RUnlock()
+	fmt.Fprint(w, `}`)
 }
 
 //func searchHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -83,7 +86,6 @@ func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 		if v == nil {
 			w.WriteHeader(404)
 		} else {
-			//fmt.Printf("The answer is: %s\n", v)
 			fmt.Fprintf(w, "%s\n", v)
 		}
 		return nil
