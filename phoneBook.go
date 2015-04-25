@@ -75,7 +75,7 @@ func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 //}
 
 func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("get", params.ByName("surname"))
+	log.Println("get", params.ByName("surname"), params.ByName("firstname"))
 
 	BoltClient.Mutex.RLock()
 
@@ -110,6 +110,7 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 		//if doesn't unmarshal then send back the error
 		fmt.Fprint(w, "failed to marshal JSON: ", err)
 		w.WriteHeader(400) //http: multiple response.WriteHeader calls error
+		return
 
 	} else {
 
@@ -154,7 +155,7 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 					break
 				}
 			}
-
+			//****************************************check if slice has len > 1
 			//else if the first name is new, append the entry to the slice
 			if newFirstName {
 				boltDBJSON.Entries = append(boltDBJSON.Entries, rBodyJSON.Entries...)
@@ -185,26 +186,84 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("del", params.ByName("surname"), params.ByName("firstname"))
 
-	//get surname
-	//if not present return 404
-	//else check if firstname is present
-	//if not present return 404
-	//else remove that part of the JSON
-	BoltClient.Mutex.Lock()
+	//if the fistname isn't included in the query
+	if params.ByName("firstname") == "" {
+		BoltClient.Mutex.Lock()
+		//Delete the whole surname from the bucket
+		err := BoltClient.DB.Update(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("phoneBook"))
+			err := b.Delete([]byte(params.ByName("surname")))
+			return err
+		})
+		BoltClient.Mutex.Unlock()
 
-	//Delete from bucket
-	err := BoltClient.DB.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("phoneBook"))
-		err := b.Delete([]byte(params.ByName("surname")))
-		return err
-	})
+		if err != nil {
+			log.Print(err)
+		}
 
-	BoltClient.Mutex.Unlock()
+	} else {
+		//else if the firstname is present in the URL
 
-	if err != nil {
-		log.Print(err)
+		//check if that surname is present in the phoneBook entries
+		BoltClient.Mutex.RLock()
+		var v []byte
+		BoltClient.DB.View(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("phoneBook"))
+			v = b.Get([]byte(params.ByName("surname")))
+			return nil
+		})
+		BoltClient.Mutex.RUnlock()
+
+		if v == nil {
+			//if that surname entry doesn't exist then exit
+			return
+		}
+
+		//unmarshal the boltDB entry
+		var boltDBJSON SurnameStruct
+		json.Unmarshal(v, &boltDBJSON)
+
+		//Now check if the first name already is present in the entry
+		for i := range boltDBJSON.Entries {
+			if boltDBJSON.Entries[i].FirstName == params.ByName("firstname") {
+				//if it is present, remove that element from the slice
+				boltDBJSON.Entries = append(boltDBJSON.Entries[:i], boltDBJSON.Entries[i+1:]...)
+				break
+			}
+		}
+
+		//if the slice is now empty, delete the whole surname entry
+		if len(boltDBJSON.Entries) == 0 {
+			BoltClient.Mutex.Lock()
+			//Delete the whole surname from the bucket
+			err := BoltClient.DB.Update(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte("phoneBook"))
+				err := b.Delete([]byte(params.ByName("surname")))
+				return err
+			})
+			BoltClient.Mutex.Unlock()
+
+			if err != nil {
+				fmt.Println(err)
+			}
+		} else {
+
+			//else marshal back to []byte ready for BoltDB
+			newJSON, err := json.Marshal(boltDBJSON)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			//write the new JSON back to BoltDB
+			BoltClient.Mutex.Lock()
+			err = BoltClient.DB.Update(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte("phoneBook"))
+				err := b.Put([]byte(params.ByName("surname")), newJSON)
+				return err
+			})
+			BoltClient.Mutex.Unlock()
+		}
 	}
-
 }
 
 //NewRouter returns a httprouter.Router complete with the routes
@@ -213,8 +272,10 @@ func NewRouter() *httprouter.Router {
 	router := httprouter.New()
 	router.GET("/list", listHandler)
 	//router.GET("/search/:surname", searchHandler) //need to fix this, to /search?surname=bob
-	router.GET("/entry/:surname", getEntryHandler) //is this the search
-	router.PUT("/entry/:surname", putEntryHandler)
+	router.PUT("/entry", putEntryHandler)
+	router.GET("/entry/:surname", getEntryHandler)
+	router.GET("/entry/:surname/:firstname", getEntryHandler)
+	router.DELETE("/entry/:surname", delEntryHandler)
 	router.DELETE("/entry/:surname/:firstname", delEntryHandler)
 
 	return router
