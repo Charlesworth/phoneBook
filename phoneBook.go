@@ -15,7 +15,12 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-type Entry struct {
+type SurnameStruct struct {
+	Surname string        `json:"Surname"`
+	Entries []EntryStruct `json:"Entries"`
+}
+
+type EntryStruct struct {
 	FirstName   string `json:"FirstName"`
 	TelNo       string `json:"TelNo"`
 	Line1       string `json:"Line1"`
