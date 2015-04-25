@@ -99,46 +99,110 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	log.Println("put", params.ByName("surname"))
 
 	//get the content of the HTTP request
-	defer r.Body.Close()
+
 	bodyByte, _ := ioutil.ReadAll(r.Body)
-	body := string(bodyByte)
-	log.Println("Content: " + body)
+	//body := string(bodyByte)
+	r.Body.Close()
+	//log.Println("Content: " + body)	test line
 
 	//marshal Body into Json
 
-	p, err := json.Marshal(body)
-	if err != nil {
-		fmt.Println(err)
-	}
+	//	p, err := json.Marshal(body)
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
 
-	fmt.Println(string(p))
+	//	fmt.Println(string(p))
 
-	//Unmarshall into SurnameStruct var *not working*
-	var unmarsh SurnameStruct
-	err = json.Unmarshal(p, &unmarsh)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Println("test", unmarsh.Entries[0].FirstName)
-
-	//if doesn't unmarshal then send back bad request
-	//check if that surname is present
-	//if it is then retrieve and add record
-	//else
-
-	BoltClient.Mutex.Lock()
-
-	err = BoltClient.DB.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("phoneBook"))
-		err := b.Put([]byte(params.ByName("surname")), []byte(body))
-		return err
-	})
-
-	BoltClient.Mutex.Unlock()
+	//Unmarshall into SurnameStruct var
+	var unmarshal SurnameStruct
+	err := json.Unmarshal(bodyByte, &unmarshal)
 
 	if err != nil {
-		log.Print(err)
+		//if doesn't unmarshal then send back bad request
+		fmt.Fprint(w, "failed to marshal JSON: ", err)
+		w.WriteHeader(400) //http: multiple response.WriteHeader calls error
+
+	} else {
+
+		//check if that surname is present
+		BoltClient.Mutex.RLock()
+		var v []byte
+		BoltClient.DB.View(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("phoneBook"))
+			v = b.Get([]byte(unmarshal.Surname))
+			return nil
+		})
+		BoltClient.Mutex.RUnlock()
+
+		if v == nil { //doesn't seem to work after a delete
+			fmt.Println("entry does NOT exist")
+			//just write the thing
+			BoltClient.Mutex.Lock()
+
+			err = BoltClient.DB.Update(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte("phoneBook"))
+				err := b.Put([]byte(unmarshal.Surname), []byte(bodyByte))
+				return err
+			})
+
+			BoltClient.Mutex.Unlock()
+
+			if err != nil {
+				log.Print(err)
+			}
+
+		} else {
+			//insert into current
+			fmt.Println("does exist")
+
+			//unmarshal boltDB copy
+			var unmarshal2 SurnameStruct
+			json.Unmarshal(v, &unmarshal2)
+
+			//delete if there is already one with this first name
+			newName := true
+			for i := range unmarshal2.Entries {
+				if unmarshal2.Entries[i].FirstName == unmarshal.Entries[0].FirstName {
+					unmarshal2.Entries[i] = unmarshal.Entries[0]
+					newName = false
+					break
+				}
+			}
+
+			if newName {
+				//append []entries with new entry
+				unmarshal2.Entries = append(unmarshal2.Entries, unmarshal.Entries...)
+			}
+
+			//then marshal
+			m1json, err := json.Marshal(unmarshal2)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			//rewrite to bolt
+			BoltClient.Mutex.Lock()
+
+			err = BoltClient.DB.Update(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte("phoneBook"))
+
+				err := b.Put([]byte(unmarshal2.Surname), m1json)
+				return err
+			})
+
+			BoltClient.Mutex.Unlock()
+
+			if err != nil {
+				log.Print(err)
+			}
+
+		}
+
+		//if it is then retrieve and add record
+		//else
+
+		//		w.WriteHeader(200)
 	}
 }
 
