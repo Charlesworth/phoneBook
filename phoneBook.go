@@ -5,6 +5,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -44,6 +45,7 @@ func main() {
 	defer BoltClient.DB.Close()
 
 	//start the server
+	fmt.Println("PhoneBook HTTP service")
 	log.Println("Listening on port :3000")
 	log.Fatal(http.ListenAndServe(":3000", NewRouter()))
 }
@@ -55,11 +57,9 @@ func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	BoltClient.Mutex.RLock()
 
 	//list all entries in the bucket
-	//fmt.Println("all in the phonebook:")
 	BoltClient.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("phoneBook"))
 		b.ForEach(func(k, v []byte) error {
-			//fmt.Printf("key=%s, value=%s\n", k, v)
 			fmt.Fprintf(w, "%s,", v) //"%s\n", v)
 			return nil
 		})
@@ -104,14 +104,32 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	body := string(bodyByte)
 	log.Println("Content: " + body)
 
-	//marshal unmarshal Json
+	//marshal Body into Json
+
+	p, err := json.Marshal(body)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(string(p))
+
+	//Unmarshall into SurnameStruct var *not working*
+	var unmarsh SurnameStruct
+	err = json.Unmarshal(p, &unmarsh)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("test", unmarsh.Entries[0].FirstName)
+
+	//if doesn't unmarshal then send back bad request
 	//check if that surname is present
 	//if it is then retrieve and add record
 	//else
 
 	BoltClient.Mutex.Lock()
 
-	err := BoltClient.DB.Update(func(tx *bolt.Tx) error {
+	err = BoltClient.DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("phoneBook"))
 		err := b.Put([]byte(params.ByName("surname")), []byte(body))
 		return err
@@ -125,8 +143,13 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 }
 
 func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("del", params.ByName("surname"))
+	log.Println("del", params.ByName("surname"), params.ByName("firstname"))
 
+	//get surname
+	//if not present return 404
+	//else check if firstname is present
+	//if not present return 404
+	//else remove that part of the JSON
 	BoltClient.Mutex.Lock()
 
 	//Delete from bucket
@@ -152,7 +175,7 @@ func NewRouter() *httprouter.Router {
 	//router.GET("/search/:surname", searchHandler) //need to fix this, to /search?surname=bob
 	router.GET("/entry/:surname", getEntryHandler) //is this the search
 	router.PUT("/entry/:surname", putEntryHandler)
-	router.DELETE("/entry/:surname", delEntryHandler)
+	router.DELETE("/entry/:surname/:firstname", delEntryHandler)
 
 	return router
 }
