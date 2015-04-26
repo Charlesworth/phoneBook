@@ -51,7 +51,7 @@ func main() {
 }
 
 func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("list")
+	log.Println("[GET /] request from", r.RemoteAddr)
 
 	fmt.Fprint(w, `{"Phone Book":`)
 	BoltClient.Mutex.RLock()
@@ -70,12 +70,8 @@ func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	fmt.Fprint(w, `}`)
 }
 
-//func searchHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-//	log.Println("search", params.ByName("surname"))
-//}
-
 func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("get", params.ByName("surname"), params.ByName("firstname"))
+	log.Println("[GET", r.RequestURI, "] request from", r.RemoteAddr)
 
 	BoltClient.Mutex.RLock()
 
@@ -96,7 +92,7 @@ func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 }
 
 func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("put", params.ByName("surname"))
+	log.Println("[PUT", r.RequestURI, "] request from", r.RemoteAddr)
 
 	//get the body of the HTTP request
 	rbodyByte, _ := ioutil.ReadAll(r.Body)
@@ -184,7 +180,7 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 }
 
 func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("del", params.ByName("surname"), params.ByName("firstname"))
+	log.Println("[DELETE", r.RequestURI, "] request from", r.RemoteAddr)
 
 	//if the fistname isn't included in the query
 	if params.ByName("firstname") == "" {
@@ -270,13 +266,17 @@ func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 func NewRouter() *httprouter.Router {
 
 	router := httprouter.New()
-	router.GET("/list", listHandler)
-	//router.GET("/search/:surname", searchHandler) //need to fix this, to /search?surname=bob
-	router.PUT("/entry", putEntryHandler)
-	router.GET("/entry/:surname", getEntryHandler)
-	router.GET("/entry/:surname/:firstname", getEntryHandler)
-	router.DELETE("/entry/:surname", delEntryHandler)
-	router.DELETE("/entry/:surname/:firstname", delEntryHandler)
+	router.GET("/", listHandler)
+	router.PUT("/", putEntryHandler)
+	//	router.GET("/entry/:surname", getEntryHandler)
+	//	router.GET("/entry/:surname/:firstname", getEntryHandler)
+	//	router.DELETE("/entry/:surname", delEntryHandler)
+	//	router.DELETE("/entry/:surname/:firstname", delEntryHandler)
+
+	router.GET("/:surname", getEntryHandler)
+	router.GET("/:surname/:firstname", getEntryHandler)
+	router.DELETE("/:surname", delEntryHandler)
+	router.DELETE("/:surname/:firstname", delEntryHandler)
 
 	return router
 }
