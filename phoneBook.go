@@ -39,47 +39,55 @@ type BoltStruct struct {
 }
 
 var BoltClient *BoltStruct
+var Bucket = "phoneBook"
 
 func main() {
 
 	SetProc()
-	BoltClient = NewBoltClient()
+	BoltClient = NewBoltClient(Bucket)
 	defer BoltClient.DB.Close()
 
 	//start the server
 	fmt.Println("PhoneBook HTTP service")
-	log.Println("Listening on port :3000")
-	log.Fatal(http.ListenAndServe(":3000", NewRouter()))
+	log.Println("Listening on port :2000")
+	log.Fatal(http.ListenAndServe(":2000", NewRouter()))
 }
 
 func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("[GET /] request from", r.RemoteAddr)
+	fmt.Println("[GET /] request from", r.RemoteAddr)
 
-	fmt.Fprint(w, `{"Phone Book":`)
+	fmt.Fprint(w, `{"Phone Book":[`)
 	BoltClient.Mutex.RLock()
 
 	//list all entries in the bucket
 	BoltClient.DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("phoneBook"))
+		b := tx.Bucket([]byte(Bucket))
+		firstCount := true
 		b.ForEach(func(k, v []byte) error {
-			fmt.Fprintf(w, "%s,", v) //"%s\n", v)
+			if firstCount {
+				firstCount = false
+			} else {
+				fmt.Fprint(w, ",")
+			}
+			fmt.Fprintf(w, "%s", v)
 			return nil
 		})
+
 		return nil
 	})
 
 	BoltClient.Mutex.RUnlock()
-	fmt.Fprint(w, `}`)
+	fmt.Fprint(w, `]}`)
 }
 
 func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("[GET", r.RequestURI, "] request from", r.RemoteAddr)
+	fmt.Println("[GET", r.RequestURI, "] request from", r.RemoteAddr)
 
 	//Get surname from bucket
 	BoltClient.Mutex.RLock()
 	var v []byte
 	BoltClient.DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("phoneBook"))
+		b := tx.Bucket([]byte(Bucket))
 		v = b.Get([]byte(params.ByName("surname")))
 		return nil
 	})
@@ -124,7 +132,7 @@ func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 }
 
 func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) { //problem if user tries to put in more than 1 entry
-	log.Println("[PUT", r.RequestURI, "] request from", r.RemoteAddr)
+	fmt.Println("[PUT", r.RequestURI, "] request from", r.RemoteAddr)
 
 	//get the body of the HTTP request
 	rbodyByte, _ := ioutil.ReadAll(r.Body)
@@ -141,15 +149,16 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 	} else if len(rBodyJSON.Entries) != 1 {
 		//if more that one element in "Entries" array then 400, this is unsupported
-		fmt.Fprint(w, `failed to input JSON: only one element in "Entries" per PUT request supported`)
+		fmt.Fprintln(w, `failed to input JSON: only one element in "Entries" per PUT request supported`)
 		w.WriteHeader(400)
+
 	} else {
 
 		//check if that surname is present in the phoneBook entries
 		BoltClient.Mutex.RLock()
 		var v []byte
 		BoltClient.DB.View(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte("phoneBook"))
+			b := tx.Bucket([]byte(Bucket))
 			v = b.Get([]byte(rBodyJSON.Surname))
 			return nil
 		})
@@ -160,7 +169,7 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 			//make a new entry
 			BoltClient.Mutex.Lock()
 			err = BoltClient.DB.Update(func(tx *bolt.Tx) error {
-				b := tx.Bucket([]byte("phoneBook"))
+				b := tx.Bucket([]byte(Bucket))
 				err := b.Put([]byte(rBodyJSON.Surname), []byte(rbodyByte))
 				return err
 			})
@@ -169,6 +178,8 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 			if err != nil {
 				log.Print(err)
 			}
+
+			w.WriteHeader(200)
 
 		} else {
 			//v != nil, so there is already some content under that surname
@@ -186,7 +197,7 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 					break
 				}
 			}
-			//****************************************check if slice has len > 1
+
 			//else if the first name is new, append the entry to the slice
 			if newFirstName {
 				boltDBJSON.Entries = append(boltDBJSON.Entries, rBodyJSON.Entries...)
@@ -201,7 +212,7 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 			//rewrite the entry to bolt
 			BoltClient.Mutex.Lock()
 			err = BoltClient.DB.Update(func(tx *bolt.Tx) error {
-				b := tx.Bucket([]byte("phoneBook"))
+				b := tx.Bucket([]byte(Bucket))
 				err := b.Put([]byte(boltDBJSON.Surname), newJSON)
 				return err
 			})
@@ -210,19 +221,21 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 			if err != nil {
 				log.Print(err)
 			}
+
+			w.WriteHeader(200)
 		}
 	}
 }
 
 func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("[DELETE", r.RequestURI, "] request from", r.RemoteAddr)
+	fmt.Println("[DELETE", r.RequestURI, "] request from", r.RemoteAddr)
 
 	//if the fistname isn't included in the query
 	if params.ByName("firstname") == "" {
 		BoltClient.Mutex.Lock()
 		//Delete the whole surname from the bucket
 		err := BoltClient.DB.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte("phoneBook"))
+			b := tx.Bucket([]byte(Bucket))
 			err := b.Delete([]byte(params.ByName("surname")))
 			return err
 		})
@@ -239,7 +252,7 @@ func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 		BoltClient.Mutex.RLock()
 		var v []byte
 		BoltClient.DB.View(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte("phoneBook"))
+			b := tx.Bucket([]byte(Bucket))
 			v = b.Get([]byte(params.ByName("surname")))
 			return nil
 		})
@@ -268,7 +281,7 @@ func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 			BoltClient.Mutex.Lock()
 			//Delete the whole surname from the bucket
 			err := BoltClient.DB.Update(func(tx *bolt.Tx) error {
-				b := tx.Bucket([]byte("phoneBook"))
+				b := tx.Bucket([]byte(Bucket))
 				err := b.Delete([]byte(params.ByName("surname")))
 				return err
 			})
@@ -288,7 +301,7 @@ func delEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 			//write the new JSON back to BoltDB
 			BoltClient.Mutex.Lock()
 			err = BoltClient.DB.Update(func(tx *bolt.Tx) error {
-				b := tx.Bucket([]byte("phoneBook"))
+				b := tx.Bucket([]byte(Bucket))
 				err := b.Put([]byte(params.ByName("surname")), newJSON)
 				return err
 			})
@@ -311,14 +324,15 @@ func NewRouter() *httprouter.Router {
 	return router
 }
 
-//SetProc sets the program to use 2 proccessor cores
+//SetProc sets the program to use 1 proccessor core
 func SetProc() {
-	runtime.GOMAXPROCS(2)
+	runtime.GOMAXPROCS(1)
 }
 
-//NewBoltClient produces a BoltClient and Mutex lock and assigns them
-//to the global BoltClient variable
-func NewBoltClient() *BoltStruct {
+//NewBoltClient produces a BoltClient and Mutex lock with bucket
+//named after the bucket input string. Returns a pointer to the
+//initialized BoltStruct
+func NewBoltClient(bucket string) *BoltStruct {
 	//Open DB
 	BoltDB, err := bolt.Open("phoneBook.db", 0600, nil)
 	if err != nil {
@@ -327,7 +341,7 @@ func NewBoltClient() *BoltStruct {
 
 	//open (or create if not present) bucket
 	err = BoltDB.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte("phoneBook"))
+		_, err := tx.CreateBucketIfNotExists([]byte(bucket))
 
 		return err
 	})
