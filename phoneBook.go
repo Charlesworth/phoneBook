@@ -73,25 +73,55 @@ func listHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	log.Println("[GET", r.RequestURI, "] request from", r.RemoteAddr)
 
+	//Get surname from bucket
 	BoltClient.Mutex.RLock()
-
-	//Get from bucket
+	var v []byte
 	BoltClient.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("phoneBook"))
-		v := b.Get([]byte(params.ByName("surname")))
-		if v == nil {
-			w.WriteHeader(404)
-		} else {
-			fmt.Fprintf(w, "%s\n", v)
-		}
+		v = b.Get([]byte(params.ByName("surname")))
 		return nil
 	})
-
 	BoltClient.Mutex.RUnlock()
 
+	if v == nil {
+		//If the value comes back empty, 404 response
+		w.WriteHeader(404)
+
+	} else if params.ByName("firstname") == "" {
+		//Else if there is no fistname granularity in URI request
+		fmt.Fprintf(w, "%s\n", v)
+
+	} else {
+		//else if there is firstname granularity in URI request
+
+		//unmarshal the boltDB entry
+		var boltDBJSON SurnameStruct
+		json.Unmarshal(v, &boltDBJSON)
+
+		//Now find the firstname entry
+		firstnamePresent := false
+		for i := range boltDBJSON.Entries {
+			if boltDBJSON.Entries[i].FirstName == params.ByName("firstname") {
+				//if it is present, print to response body
+				newJSON, err := json.Marshal(boltDBJSON.Entries[i])
+				if err != nil {
+					fmt.Println(err)
+				}
+
+				fmt.Fprintf(w, "%s\n", newJSON)
+				firstnamePresent = true
+				break
+			}
+		}
+
+		if !firstnamePresent {
+			//else if the first name is not present 404 response
+			w.WriteHeader(404)
+		}
+	}
 }
 
-func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) { //problem if user tries to put in more than 1 entry
 	log.Println("[PUT", r.RequestURI, "] request from", r.RemoteAddr)
 
 	//get the body of the HTTP request
@@ -272,7 +302,6 @@ func NewRouter() *httprouter.Router {
 	//	router.GET("/entry/:surname/:firstname", getEntryHandler)
 	//	router.DELETE("/entry/:surname", delEntryHandler)
 	//	router.DELETE("/entry/:surname/:firstname", delEntryHandler)
-
 	router.GET("/:surname", getEntryHandler)
 	router.GET("/:surname/:firstname", getEntryHandler)
 	router.DELETE("/:surname", delEntryHandler)
