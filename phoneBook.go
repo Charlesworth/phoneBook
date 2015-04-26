@@ -33,15 +33,17 @@ type EntryStruct struct {
 	ZipPostal   string `json:"ZipPostal"`
 }
 
-var BoltClient struct {
+type BoltStruct struct {
 	DB    *bolt.DB
 	Mutex *sync.RWMutex
 }
 
+var BoltClient *BoltStruct
+
 func main() {
 
 	SetProc()
-	NewBoltClient()
+	BoltClient = NewBoltClient()
 	defer BoltClient.DB.Close()
 
 	//start the server
@@ -102,7 +104,7 @@ func getEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 		firstnamePresent := false
 		for i := range boltDBJSON.Entries {
 			if boltDBJSON.Entries[i].FirstName == params.ByName("firstname") {
-				//if it is present, print to response body
+				//if it is present, remarshal and print to response body
 				newJSON, err := json.Marshal(boltDBJSON.Entries[i])
 				if err != nil {
 					fmt.Println(err)
@@ -135,9 +137,12 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 	if err != nil {
 		//if doesn't unmarshal then send back the error
 		fmt.Fprint(w, "failed to marshal JSON: ", err)
-		w.WriteHeader(400) //http: multiple response.WriteHeader calls error
-		return
+		w.WriteHeader(400)
 
+	} else if len(rBodyJSON.Entries) != 1 {
+		//if more that one element in "Entries" array then 400, this is unsupported
+		fmt.Fprint(w, `failed to input JSON: only one element in "Entries" per PUT request supported`)
+		w.WriteHeader(400)
 	} else {
 
 		//check if that surname is present in the phoneBook entries
@@ -298,10 +303,6 @@ func NewRouter() *httprouter.Router {
 	router := httprouter.New()
 	router.GET("/", listHandler)
 	router.PUT("/", putEntryHandler)
-	//	router.GET("/entry/:surname", getEntryHandler)
-	//	router.GET("/entry/:surname/:firstname", getEntryHandler)
-	//	router.DELETE("/entry/:surname", delEntryHandler)
-	//	router.DELETE("/entry/:surname/:firstname", delEntryHandler)
 	router.GET("/:surname", getEntryHandler)
 	router.GET("/:surname/:firstname", getEntryHandler)
 	router.DELETE("/:surname", delEntryHandler)
@@ -317,7 +318,7 @@ func SetProc() {
 
 //NewBoltClient produces a BoltClient and Mutex lock and assigns them
 //to the global BoltClient variable
-func NewBoltClient() { //*BoltClient {
+func NewBoltClient() *BoltStruct {
 	//Open DB
 	BoltDB, err := bolt.Open("phoneBook.db", 0600, nil)
 	if err != nil {
@@ -337,8 +338,9 @@ func NewBoltClient() { //*BoltClient {
 	//make a read/write mutex
 	mutex := &sync.RWMutex{}
 
-	//assign the pointers to the mutex and DB to the Global
-	//BoltClient var
-	BoltClient.DB = BoltDB
-	BoltClient.Mutex = mutex
+	//return as a pointer to the initialised BoltStruct variable
+	return &BoltStruct{
+		DB:    BoltDB,
+		Mutex: mutex,
+	}
 }

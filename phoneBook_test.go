@@ -39,3 +39,8 @@ func TestSetProc(t *testing.T) {
 func Testmain(t *testing.T) {
 
 }
+
+func TestNewBoltClient(t *testing.T) {
+	NewBoltClient()
+
+}
