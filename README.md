@@ -1,4 +1,4 @@
-# phoneBook
+# phoneBook	<a href="https://travis-ci.org/Charlesworth/phoneBook"><img src="https://travis-ci.org/Charlesworth/phoneBook.svg?branch=master"></a>
 
 A HTTP service implementing a phone/address book. Written in Go and using [BoltDB] as a storage engine and [httprouter] for route demux. Written by Charles Cochrane.
 
