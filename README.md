@@ -6,12 +6,12 @@ A HTTP service implementing a phone/address book. Written in Go and using [BoltD
 [httprouter]: https://github.com/julienschmidt/httprouter
 
 Content:
-- [Usage](#Usage)
-- [API](#API)
-- [JSON Format](#JSON-Format)
-- [How to Run](#How-To-Run)
-- [Possible Future Features](#Possible-Future-Features)
-- [Limitations](#Limitations)
+- [Usage](#usage)
+- [API](#api)
+- [JSON Format](#json-format)
+- [How to Run](#how-to-run)
+- [Possible Future Features](#possible-future-features)
+- [Limitations](#limitations)
 
 ## Usage
 
@@ -28,7 +28,7 @@ An entry in the phone book contains a first name, surname, telephone number and 
 
 ### - Add/Update an entry:
 ##### `PUT` appUrl/
-Adds or updates a single entry in the phoneBook using JSON in the request body. Please input JSON in the format described in the [JSON Format](#JSON-Format) section of this README.
+Adds or updates a single entry in the phoneBook using JSON in the request body. Please input JSON in the format described in the [JSON Format](#json-format) section of this README.
 
 ### - Delete an entry: 
 ##### `DELETE` appUrl/[Surname]
