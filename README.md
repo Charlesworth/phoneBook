@@ -16,7 +16,7 @@ Content:
 
 ## Usage
 
-There are 4 main things you can do with this application:
+There are 4 main interactions that can be made to this application via the API:
 
 - add/update an entry
 - delete an entry
@@ -77,23 +77,26 @@ The "Entries" element is an array, meaning that multiple elements can be stored,
 
 ### Download binary executables
 
-Binaries for Windows and Linux are available on the [Releases] section of this project. I don't have a Mac so am unwilling to vouch for that binary without testing it myself.
+Binaries for Windows and Linux are available on the [Releases] section of this project. I cannot test Mac builds but Apple users will be able to follow the build instructions below instead.
 
 After downlaoding the binaries, run the appropriate one for your system. When the phoneBook server starts it will be accessable on [http://localhost:2000/], ready and waiting for your HTTP API calls. Please note that phoneBook creates a phoneBook.db file in its current directory. If you want to reset the data, feel free to stop the server, delete the .db file and restart the server.
 
 ### Download source and building/running yourself
 
+Building or Running a .go file will require you to have installed Go on your machine. Easy instructions for setting up Go can be found at [golang.org].
+
 If you have the [Go] language installed on your machine, building the code yourself, using the "go install" command or simply running the code will also work. For example:
 
 	$ go get github.com/Charlesworth/phoneBook
-    # cd into this phoneBook directory in your system
-    $ go run phoneBook.go
+    	# cd into this phoneBook directory in your system
+	$ go run phoneBook.go
 
 As above, the server will start on [http://localhost:2000/] but you can easily change the port number in the source code.
 
 [Releases]: https://github.com/Charlesworth/phoneBook/releases
 [http://localhost:2000/]: http://localhost:2000/
 [Go]: http://golang.org/
+[golang.org]: http://golang.org/
 
 ## Possible Future Features
 
