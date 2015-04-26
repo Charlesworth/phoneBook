@@ -5,6 +5,8 @@ import (
 	//"net/http"
 	//"net/http/httptest"
 	//"github.com/Charlesworth/phoneBook"
+	//"fmt"
+	"github.com/boltdb/bolt"
 	"reflect"
 	"runtime"
 	"testing"
@@ -41,6 +43,70 @@ func Testmain(t *testing.T) {
 }
 
 func TestNewBoltClient(t *testing.T) {
-	NewBoltClient()
+	boltTest := NewBoltClient()
 
+	boltTest.Mutex.Lock()
+
+	//Test creating bucket
+	err := boltTest.DB.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte("test"))
+
+		return err
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	//Write to bucket
+	err = boltTest.DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("test"))
+		err = b.Put([]byte("hello"), []byte("world"))
+		return err
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	boltTest.Mutex.Unlock()
+	boltTest.Mutex.RLock()
+
+	//Get from bucket
+	var v []byte
+	boltTest.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("test"))
+		v = b.Get([]byte("hello"))
+		return nil
+	})
+	if v == nil {
+		t.Error("Cannot retrive values from BOLTDB")
+	}
+	if string(v) != "world" {
+		t.Error("BoltDB not storing values correctly")
+	}
+
+	boltTest.Mutex.RUnlock()
+	boltTest.Mutex.Lock()
+
+	//Delete from bucket
+	err = boltTest.DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("test"))
+		err = b.Delete([]byte("hello"))
+		return err
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	//Delete test bucket
+	err = boltTest.DB.Update(func(tx *bolt.Tx) error {
+		err := tx.DeleteBucket([]byte("test"))
+		return err
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	boltTest.Mutex.Unlock()
+
+	boltTest.DB.Close()
 }
