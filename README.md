@@ -12,6 +12,7 @@ Content:
 - [How to Run](#how-to-run)
 - [Possible Future Features](#possible-future-features)
 - [Limitations](#limitations)
+- [Testing](#testing)
 
 ## Usage
 
@@ -109,3 +110,10 @@ As above, the server will start on [http://localhost:2000/] but you can easily c
 - Doesn't account for repeat entries, i.e. if you know two people called John Smith
 - Can only input one entry at a time
 - No security of any kind, anyone could grab your phonebook records
+
+## Testing
+
+Please see [Travis] for the most recent build test results. Test coverage currently at 84.8% Total.
+
+
+[Travis]: https://travis-ci.org/Charlesworth/phoneBook
