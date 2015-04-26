@@ -144,13 +144,13 @@ func putEntryHandler(w http.ResponseWriter, r *http.Request, params httprouter.P
 
 	if err != nil {
 		//if doesn't unmarshal then send back the error
-		fmt.Fprint(w, "failed to marshal JSON: ", err)
 		w.WriteHeader(400)
+		fmt.Fprint(w, "failed to marshal JSON: ", err)
 
 	} else if len(rBodyJSON.Entries) != 1 {
 		//if more that one element in "Entries" array then 400, this is unsupported
-		fmt.Fprintln(w, `failed to input JSON: only one element in "Entries" per PUT request supported`)
 		w.WriteHeader(400)
+		fmt.Fprintln(w, `failed to input JSON: only one element in "Entries" per PUT request supported`)
 
 	} else {
 

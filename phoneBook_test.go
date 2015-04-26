@@ -117,9 +117,9 @@ func TestPutHandler(t *testing.T) {
 
 	inputHTTP := [5]MockHTTP{
 		//test case 0: improper formatted JSON
-		{"/", 200, []byte(`asfasdfasdf3421432@:L(*)(*&^"!`)},
+		{"/", 400, []byte(`asfasdfasdf3421432@:L(*)(*&^"!`)},
 		//test case 1: more than 1 element being input in "Entries"
-		{"/", 200, []byte(`{"Surname":"Smith","Entries":[{"Firstname":"John","TelNo":"1234567890","Line1":"1a","Line2":"Fake St","TownCity":"Fakeville","CountyState":"Fakeshire","Country":"England","ZipPostal":"AA1 2BB"},{"Firstname":"Jane","TelNo":"1234567890","Line1":"1a","Line2":"Fake St","TownCity":"Fakeville","CountyState":"Fakeshire","Country":"England","ZipPostal":"AA1 2BB"}]}`)},
+		{"/", 400, []byte(`{"Surname":"Smith","Entries":[{"Firstname":"John","TelNo":"1234567890","Line1":"1a","Line2":"Fake St","TownCity":"Fakeville","CountyState":"Fakeshire","Country":"England","ZipPostal":"AA1 2BB"},{"Firstname":"Jane","TelNo":"1234567890","Line1":"1a","Line2":"Fake St","TownCity":"Fakeville","CountyState":"Fakeshire","Country":"England","ZipPostal":"AA1 2BB"}]}`)},
 		//test case 2: new Surname
 		{"/", 200, []byte(`{"Surname":"Smith","Entries":[{"Firstname":"John","TelNo":"1234567890","Line1":"1a","Line2":"Fake St","TownCity":"Fakeville","CountyState":"Fakeshire","Country":"England","ZipPostal":"AA1 2BB"}]}`)},
 		//test case 3: new firstname in existing Surname
