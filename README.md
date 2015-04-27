@@ -110,6 +110,7 @@ As above, the server will start on [http://localhost:2000/] but you can easily c
 ## Limitations
 
 - Listing all entries output JSON is not sorted into any order
+- Set to run on a single core. Though I have tested this on an 8 core system and it is memory safe, I have left the SETMAXPROC() to its defualt value of 1 core. This can be changed in the source code however.
 - Doesn't account for repeat entries, i.e. if you know two people called John Smith
 - Can only input one entry at a time
 - No security of any kind, anyone could grab your phonebook records
